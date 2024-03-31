@@ -1,0 +1,17 @@
+[package]
+name = "spaceship_game"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.13.1"
+
+# 在调试模式下启用少量优化
+[profile.dev]
+opt-level = 1
+
+# 对依赖项(包括Bevy)进行高度优化
+[profile.dev.package."*"]
+opt-level = 3
