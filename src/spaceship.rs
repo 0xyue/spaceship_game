@@ -4,6 +4,7 @@ use crate::{
     asset_loader::SceneAssets,
     collision_detection::Collider,
     movement::{Acceleration, MovingObjectBundle, Velocity},
+    schedule::InGameSet,
 };
 
 // 定义飞船的初始位置，这是一个三维向量，初始值为 (0.0, 0.0, -20.0)
@@ -34,15 +35,27 @@ const MISSILE_RADIUS: f32 = 1.0;
 pub struct Spaceship;
 
 #[derive(Component, Debug)]
+pub struct SpaceshipShield;
+
+#[derive(Component, Debug)]
 pub struct SpaceshipMissile;
 
 pub struct SpaceshipPlugin;
 
+// 为 `SpaceshipPlugin` 实现 `Plugin` trait
 impl Plugin for SpaceshipPlugin {
+    // 在 `build` 方法中，配置 `PostStartup` 阶段的系统集，包括 `spawn_spaceship` 系统
+    // 并在更新阶段添加 `spaceship_movement_controls`、`spaceship_weapon_controls` 和 `spaceship_shield_controls` 系统，这些系统在 `InGameSet::UserInput` 集合中运行
     fn build(&self, app: &mut App) {
         app.add_systems(PostStartup, spawn_spaceship).add_systems(
             Update,
-            (spaceship_movement_controls, spaceship_weapon_controls),
+            (
+                spaceship_movement_controls,
+                spaceship_weapon_controls,
+                spaceship_shield_controls,
+            )
+                .chain()
+                .in_set(InGameSet::UserInput),
         );
     }
 }
@@ -76,8 +89,11 @@ fn spaceship_movement_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    // 从查询中获取飞船的变换和速度
-    let (mut transform, mut velocity) = query.single_mut();
+    // 从查询中获取单个飞船的变换和速度
+    // 如果没有找到飞船或者发生其他错误，则直接返回并不执行后续代码
+    let Ok((mut transform, mut velocity)) = query.get_single_mut() else {
+        return;
+    };
     // 初始化旋转、翻滚和移动的变量
     let mut rotation = 0.0;
     let mut roll = 0.0;
@@ -128,7 +144,9 @@ fn spaceship_weapon_controls(
     scene_assets: Res<SceneAssets>,
 ) {
     // 从查询中获取飞船的变换
-    let transform = query.single();
+    let Ok(transform) = query.get_single() else {
+        return;
+    };
     // 如果按下了空格键
     if keyboard_input.pressed(KeyCode::Space) {
         // 使用 `commands` 的 `spawn` 方法来创建一个新的实体。
@@ -153,5 +171,24 @@ fn spaceship_weapon_controls(
             },
             SpaceshipMissile,
         ));
+    }
+}
+
+// 定义一个名为 `spaceship_shield_controls` 的函数，它接受三个参数：一个可变的 `Commands` 类型参数、一个 `Query` 类型参数和一个 `ButtonInput<KeyCode>` 资源引用
+// 这个函数用于处理飞船的护盾控制
+fn spaceship_shield_controls(
+    mut commands: Commands,
+    query: Query<Entity, With<Spaceship>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    // 从查询结果中获取单个飞船实体，如果获取失败（例如没有飞船实体），那么直接返回，不进行后续操作
+    let spaceship = match query.get_single() {
+        Ok(spaceship) => spaceship,
+        Err(_) => return,
+    };
+
+    // 如果用户按下了 Tab 键，那么给飞船实体添加 `SpaceshipShield` 组件
+    if keyboard_input.pressed(KeyCode::Tab) {
+        commands.entity(spaceship).insert(SpaceshipShield);
     }
 }

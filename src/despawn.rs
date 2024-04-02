@@ -1,16 +1,19 @@
 use bevy::prelude::*;
 
+use crate::schedule::InGameSet;
+
 // 定义一个常量 `DESPAWN_DISTANCE`，表示实体从原点距离超过这个值时将被销毁，初始值为 100.0
 const DESPAWN_DISTANCE: f32 = 100.0;
 
 // 定义一个公共结构体 `DespawnPlugin`
 pub struct DespawnPlugin;
 
-// 为 `DespawnPlugin` 实现 `Plugin` trait
 impl Plugin for DespawnPlugin {
-    // 在 `build` 方法中，将 `despawn_far_away_entities` 系统添加到应用的更新阶段
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, despawn_far_away_entities);
+        app.add_systems(
+            Update,
+            despawn_far_away_entities.in_set(InGameSet::DespawnEntities),
+        );
     }
 }
 
@@ -23,7 +26,7 @@ fn despawn_far_away_entities(mut commands: Commands, query: Query<(Entity, &Glob
 
         // 如果实体的位置距离原点的距离大于 `DESPAWN_DISTANCE`，则销毁该实体
         if distance > DESPAWN_DISTANCE {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

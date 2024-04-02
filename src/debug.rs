@@ -1,6 +1,8 @@
 // 引入 bevy 库的所有预定义类型
 use bevy::prelude::*;
 
+use crate::schedule::InGameSet;
+
 // 定义一个名为 `DebugPlugin` 的结构体
 pub struct DebugPlugin;
 
@@ -8,7 +10,7 @@ pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
     // 在 `build` 方法中，我们将 `print_position` 系统添加到更新阶段
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, print_position);
+        app.add_systems(Update, print_position.after(InGameSet::EntityUpdates));
     }
 }
 

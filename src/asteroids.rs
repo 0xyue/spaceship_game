@@ -7,6 +7,7 @@ use crate::{
     asset_loader::SceneAssets,
     collision_detection::Collider,
     movement::{Acceleration, MovingObjectBundle, Velocity},
+    schedule::InGameSet,
 };
 
 // 定义一个常量 `VELOCITY_SCALAR`，表示速度的缩放因子，初始值为 5.0
@@ -43,14 +44,16 @@ pub struct AsteroidPlugin;
 // 为 `AsteroidPlugin` 实现 `Plugin` trait
 impl Plugin for AsteroidPlugin {
     // 在 `build` 方法中，将 `SpawnTimer` 资源插入到应用中，设置其计时器为每 `SPAWN_TIME_SECONDS` 秒重复一次
-    // 并在更新阶段添加 `spawn_asteroid`、`rotate_asteroids` 和 `handle_asteroid_collisions` 系统
+    // 并在更新阶段添加 `spawn_asteroid` 和 `rotate_asteroids` 系统
     fn build(&self, app: &mut App) {
         app.insert_resource(SpawnTimer {
+            // 设置计时器为每 `SPAWN_TIME_SECONDS` 秒重复一次
             timer: Timer::from_seconds(SPAWN_TIME_SECONDS, TimerMode::Repeating),
         })
         .add_systems(
             Update,
-            (spawn_asteroid, rotate_asteroids, handle_asteroid_collisions),
+            // 在更新阶段的 `InGameSet::EntityUpdates` 集合中添加 `spawn_asteroid` 和 `rotate_asteroids` 系统
+            (spawn_asteroid, rotate_asteroids).in_set(InGameSet::EntityUpdates),
         );
     }
 }
@@ -112,24 +115,5 @@ fn rotate_asteroids(mut query: Query<&mut Transform, With<Asteroid>>, time: Res<
     for mut transform in query.iter_mut() {
         // 使用 `Transform` 的 `rotate_local_z` 方法来旋转小行星，旋转的速度为 `ROTATE_SPEED`，旋转的时间为 `time.delta_seconds()`
         transform.rotate_local_z(ROTATE_SPEED * time.delta_seconds());
-    }
-}
-
-// 这个函数用于处理小行星的碰撞事件
-fn handle_asteroid_collisions(
-    mut commands: Commands,
-    query: Query<(Entity, &Collider), With<Asteroid>>,
-) {
-    // 对查询结果进行迭代，每次迭代得到一个小行星实体和它的碰撞器
-    for (entity, collider) in query.iter() {
-        // 对碰撞器的 `colliding_entities` 字段进行迭代，每次迭代得到一个与小行星发生碰撞的实体
-        for &collided_entity in collider.colliding_entities.iter() {
-            // 如果发生碰撞的实体也是一个小行星，那么跳过这次迭代，不处理这次碰撞
-            if query.get(collided_entity).is_ok() {
-                continue;
-            }
-            // 如果发生碰撞的实体不是一个小行星，那么销毁这个小行星
-            commands.entity(entity).despawn_recursive();
-        }
     }
 }

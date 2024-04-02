@@ -1,5 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
 
+use crate::{asteroids::Asteroid, schedule::InGameSet, spaceship::Spaceship};
+
 // `Collider` 结构体用于处理碰撞检测
 #[derive(Component, Debug)]
 pub struct Collider {
@@ -26,7 +28,18 @@ pub struct CollisionDetectionPlugin;
 
 impl Plugin for CollisionDetectionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, collision_detection);
+        app.add_systems(
+            Update,
+            collision_detection.in_set(InGameSet::CollisionDetection),
+        )
+        .add_systems(
+            Update,
+            (
+                handle_collisions::<Asteroid>,
+                handle_collisions::<Spaceship>,
+            )
+                .in_set(InGameSet::DespawnEntities),
+        );
     }
 }
 
@@ -69,6 +82,26 @@ fn collision_detection(mut query: Query<(Entity, &GlobalTransform, &mut Collider
             collider
                 .colliding_entities
                 .extend(collisions.iter().copied());
+        }
+    }
+}
+
+// 定义一个名为 `handle_collisions` 的泛型函数，它接受两个参数：一个可变的 `Commands` 类型参数和一个 `Query` 类型参数
+// 这个函数用于处理实体的碰撞事件，其中 `T` 是实体的组件类型
+fn handle_collisions<T: Component>(
+    mut commands: Commands,
+    query: Query<(Entity, &Collider), With<T>>,
+) {
+    // 对查询结果进行迭代，每次迭代得到一个实体和它的碰撞器
+    for (entity, collider) in query.iter() {
+        // 对碰撞器的 `colliding_entities` 字段进行迭代，每次迭代得到一个与实体发生碰撞的实体
+        for &collided_entity in collider.colliding_entities.iter() {
+            // 如果发生碰撞的实体也是同类型的实体，那么跳过这次迭代，不处理这次碰撞
+            if query.get(collided_entity).is_ok() {
+                continue;
+            }
+            // 如果发生碰撞的实体不是同类型的实体，那么销毁这个实体
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
